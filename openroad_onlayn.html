@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OpenRoad — Nakladnoy Tizimi</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDfAA1hVFB3Q9SOToU2H4T5WcHsupwXlTs",
+    authDomain: "openroad-2efbb.firebaseapp.com",
+    projectId: "openroad-2efbb",
+    storageBucket: "openroad-2efbb.firebasestorage.app",
+    messagingSenderId: "787481988846",
+    appId: "1:787481988846:web:f2535bc818377ba9aeadff"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  let currentFilter = '';
+
+  function startListening() {
+    const q = query(collection(db, "nakladnoylar"), orderBy("sana", "desc"));
+    onSnapshot(q, (snapshot) => {
+      window._entries = [];
+      snapshot.forEach(d => window._entries.push({ id: d.id, ...d.data() }));
+      updateStats();
+      updateDriverList();
+      const filtered = currentFilter
+        ? window._entries.filter(e => JSON.stringify(e).toLowerCase().includes(currentFilter))
+        : window._entries;
+      renderTable(filtered);
+      renderDrivers();
+      hideLoader();
+    }, (err) => {
+      showError("Ma'lumot yuklanmadi. Internet aloqasini tekshiring.");
+      hideLoader();
+    });
+  }
+
+  window.addEntry = async function() {
+    const nakl    = document.getElementById('f_nakl').value.trim();
+    const sana    = document.getElementById('f_sana').value;
+    const shofyor = document.getElementById('f_shofyor').value.trim();
+    const mashina = document.getElementById('f_mashina').value.trim().toUpperCase();
+    const xoma    = document.getElementById('f_xoma').value;
+    const tonna   = parseFloat(document.getElementById('f_tonna').value) || 0;
+    const reys    = parseInt(document.getElementById('f_reys').value) || 1;
+    const narx    = parseFloat(document.getElementById('f_narx').value) || 0;
+    const joy     = document.getElementById('f_joy').value.trim();
+    const izoh    = document.getElementById('f_izoh').value.trim();
+
+    if (!nakl || !sana || !shofyor || !mashina || !xoma || !tonna) {
+      toast('⚠ Majburiy maydonlarni to\'ldiring!', 'warn'); return;
+    }
+    const summa = tonna * reys * narx;
+    showLoader();
+    try {
+      await addDoc(collection(db, "nakladnoylar"), {
+        nakl, sana, shofyor, mashina, xoma, tonna, reys, narx, summa,
+        joy, izoh, tolandi: false, tolanganSana: '', yaratilgan: new Date().toISOString()
+      });
+      toast('✓ Nakladnoy saqlandi!', 'ok');
+      clearForm();
+    } catch(e) { toast('✗ Xatolik: ' + e.message, 'err'); }
+    hideLoader();
+  };
+
+  window.deleteEntry = async function(id) {
+    if (!confirm('O\'chirishni tasdiqlaysizmi?')) return;
+    showLoader();
+    try { await deleteDoc(doc(db, "nakladnoylar", id)); toast('O\'chirildi', 'ok'); }
+    catch(e) { toast('✗ Xatolik', 'err'); }
+    hideLoader();
+  };
+
+  window.togglePaid = async function(id) {
+    const e = window._entries.find(x => x.id === id);
+    if (!e) return;
+    const newVal = !e.tolandi;
+    try {
+      await updateDoc(doc(db, "nakladnoylar", id), {
+        tolandi: newVal,
+        tolanganSana: newVal ? new Date().toISOString().split('T')[0] : ''
+      });
+      toast(newVal ? '✓ To\'landi belgilandi' : '✗ To\'lanmagan qilindi', 'ok');
+    } catch(e) { toast('✗ Xatolik', 'err'); }
+  };
+
+  window.filterTable = function(val) {
+    currentFilter = val.toLowerCase();
+    const filtered = currentFilter
+      ? window._entries.filter(e => JSON.stringify(e).toLowerCase().includes(currentFilter))
+      : window._entries;
+    renderTable(filtered);
+  };
+
+  window.exportCSV = function() {
+    const headers = ['Nakl#','Sana','Shofyor','Mashina','Xomashyo','Tonna','Reys','Narx','Summa','Joy','Tolandi','Izoh'];
+    const rows = window._entries.map(e => [e.nakl,e.sana,e.shofyor,e.mashina,e.xoma,e.tonna,e.reys,e.narx,e.summa,e.joy,e.tolandi?'Ha':'Yoq',e.izoh]);
+    const csv = [headers,...rows].map(r => r.join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent('\uFEFF' + csv);
+    a.download = 'openroad_' + new Date().toISOString().split('T')[0] + '.csv';
+    a.click();
+  };
+
+  window._startApp = function() {
+    showLoader();
+    startListening();
+    document.getElementById('f_sana').value = new Date().toISOString().split('T')[0];
+    document.getElementById('headerDate').textContent = new Date().toLocaleDateString('uz-UZ', {
+      weekday:'long', year:'numeric', month:'long', day:'numeric'
+    });
+  };
+</script>
+
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --accent: #f0a500; --accent2: #e06c00;
+    --green: #3fb950; --red: #f85149;
+    --text: #e6edf3; --muted: #8b949e;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); min-height: 100vh; }
+
+  /* ---- LOGIN ---- */
+  #loginScreen {
+    position: fixed; inset: 0; background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 10000; flex-direction: column; gap: 0;
+  }
+  .login-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--accent);
+    border-radius: 12px;
+    padding: 40px 44px;
+    width: 100%; max-width: 380px;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+  .login-logo {
+    font-family: var(--mono); font-size: 20px; font-weight: 700;
+    color: var(--accent); text-align: center; letter-spacing: -1px;
+  }
+  .login-logo span { color: var(--muted); font-weight: 400; }
+  .login-sub { font-size: 12px; color: var(--muted); text-align: center; font-family: var(--mono); }
+  .login-field { display: flex; flex-direction: column; gap: 6px; }
+  .login-field label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-family: var(--mono); }
+  .login-field input {
+    background: var(--bg); border: 1px solid var(--border);
+    color: var(--text); font-family: var(--mono); font-size: 14px;
+    padding: 10px 14px; border-radius: 6px; outline: none;
+    transition: border-color 0.15s; width: 100%;
+  }
+  .login-field input:focus { border-color: var(--accent); }
+  .login-btn {
+    background: var(--accent); color: #000; border: none;
+    font-family: var(--mono); font-size: 14px; font-weight: 700;
+    padding: 12px; border-radius: 6px; cursor: pointer;
+    transition: background 0.15s; width: 100%;
+  }
+  .login-btn:hover { background: var(--accent2); }
+  .login-err {
+    font-family: var(--mono); font-size: 12px; color: var(--red);
+    text-align: center; background: rgba(248,81,73,0.1);
+    border: 1px solid rgba(248,81,73,0.3);
+    padding: 8px 12px; border-radius: 6px; display: none;
+  }
+
+  /* ---- APP ---- */
+  #appScreen { display: none; }
+
+  #loader {
+    position: fixed; inset: 0; background: rgba(13,17,23,0.7);
+    display: none; align-items: center; justify-content: center; z-index: 9999;
+  }
+  .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  header { background: var(--surface); border-bottom: 2px solid var(--accent); padding: 14px 24px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; }
+  .logo { font-family: var(--mono); font-size: 20px; font-weight: 700; color: var(--accent); letter-spacing: -1px; }
+  .logo span { color: var(--muted); font-weight: 400; }
+  .online-badge { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px; color: var(--green); background: rgba(63,185,80,0.1); border: 1px solid rgba(63,185,80,0.3); padding: 3px 10px; border-radius: 20px; }
+  .online-dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .logout-btn { margin-left: auto; background: transparent; border: 1px solid var(--border); color: var(--muted); font-family: var(--mono); font-size: 12px; padding: 5px 14px; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
+  .logout-btn:hover { color: var(--red); border-color: var(--red); }
+  .date-badge { font-family: var(--mono); font-size: 12px; color: var(--muted); background: var(--bg); border: 1px solid var(--border); padding: 4px 12px; border-radius: 4px; }
+
+  .stats-bar { display: grid; grid-template-columns: repeat(4,1fr); gap: 1px; background: var(--border); border-bottom: 1px solid var(--border); }
+  .stat { background: var(--surface); padding: 14px 20px; text-align: center; }
+  .stat-val { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--accent); }
+  .stat-lbl { font-size: 11px; color: var(--muted); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+  main { padding: 24px; max-width: 1600px; margin: 0 auto; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+  .tab-btn { font-family: var(--mono); font-size: 13px; padding: 8px 20px; border: none; background: transparent; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab-btn:hover:not(.active) { color: var(--text); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .form-panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 20px; }
+  .form-title { font-family: var(--mono); font-size: 14px; color: var(--accent); margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+  .form-title::before { content:''; display:inline-block; width:8px; height:8px; background:var(--accent); border-radius:50%; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px,1fr)); gap: 14px; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; font-family: var(--mono); }
+  .form-group input, .form-group select { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 13px; padding: 8px 12px; border-radius: 4px; outline: none; transition: border-color 0.15s; width: 100%; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+  .form-group select option { background: var(--surface); }
+  .form-actions { margin-top: 18px; display: flex; gap: 10px; }
+  .btn-primary { background: var(--accent); color: #000; border: none; font-family: var(--mono); font-size: 13px; font-weight: 700; padding: 10px 24px; border-radius: 4px; cursor: pointer; transition: background 0.15s; }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-secondary { background: transparent; color: var(--muted); border: 1px solid var(--border); font-family: var(--mono); font-size: 13px; padding: 10px 24px; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
+  .btn-secondary:hover { color: var(--text); border-color: var(--muted); }
+
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .table-header { padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); gap: 12px; flex-wrap: wrap; }
+  .table-title { font-family: var(--mono); font-size: 13px; color: var(--accent); }
+  .search-box { background: var(--bg); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: 12px; padding: 6px 12px; border-radius: 4px; outline: none; width: 200px; }
+  .search-box:focus { border-color: var(--accent); }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .tbl th { background: var(--bg); color: var(--muted); font-family: var(--mono); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .tbl td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-family: var(--mono); vertical-align: middle; }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tbl tr:hover td { background: rgba(240,165,0,0.04); }
+  .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; font-family: var(--mono); cursor: pointer; }
+  .badge-green { background: rgba(63,185,80,0.15); color: var(--green); }
+  .badge-red   { background: rgba(248,81,73,0.15);  color: var(--red); }
+  .delete-btn { background: transparent; border: 1px solid var(--border); color: var(--red); font-family: var(--mono); font-size: 11px; padding: 3px 10px; border-radius: 4px; cursor: pointer; transition: all 0.15s; }
+  .delete-btn:hover { background: rgba(248,81,73,0.1); border-color: var(--red); }
+
+  .driver-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px,1fr)); gap: 14px; }
+  .driver-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px; transition: border-color 0.15s; }
+  .driver-card:hover { border-color: var(--accent); }
+  .driver-name { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+  .driver-plate { font-family: var(--mono); font-size: 12px; color: var(--accent); background: rgba(240,165,0,0.1); display: inline-block; padding: 2px 8px; border-radius: 3px; margin-bottom: 12px; }
+  .driver-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .dstat { text-align: center; }
+  .dstat-val { font-family: var(--mono); font-size: 16px; font-weight: 700; color: var(--accent); }
+  .dstat-lbl { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .pay-status { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+
+  .empty { text-align: center; padding: 48px; color: var(--muted); font-family: var(--mono); font-size: 13px; }
+  .print-bar { display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 16px; }
+
+  #toast { position: fixed; bottom: 24px; right: 24px; font-family: var(--mono); font-size: 13px; font-weight: 700; padding: 12px 20px; border-radius: 6px; transform: translateY(80px); opacity: 0; transition: all 0.3s; z-index: 999; }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.ok   { background: var(--accent); color: #000; }
+  #toast.warn { background: #e6a817; color: #000; }
+  #toast.err  { background: var(--red); color: #fff; }
+
+  @media (max-width: 600px) {
+    .stats-bar { grid-template-columns: repeat(2,1fr); }
+    .form-grid { grid-template-columns: 1fr; }
+    .date-badge { display: none; }
+    .login-box { padding: 28px 20px; margin: 16px; }
+  }
+
+  @media print {
+    #loginScreen, header .logout-btn, .tabs, .form-panel, .print-bar, .delete-btn, #loader, #toast { display: none !important; }
+    body { background: white; color: black; }
+    .tbl th { background: #f0f0f0; color: #333; }
+    .tbl td { color: #000; }
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN EKRANI -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">⬛ OPENROAD <span>/ Tizim</span></div>
+    <div class="login-sub">Kirish uchun login va parolni yozing</div>
+    <div class="login-field">
+      <label>Login</label>
+      <input type="text" id="loginInput" placeholder="login" autocomplete="username">
+    </div>
+    <div class="login-field">
+      <label>Parol</label>
+      <input type="password" id="passInput" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div class="login-err" id="loginErr">Login yoki parol noto'g'ri!</div>
+    <button class="login-btn" onclick="doLogin()">Kirish →</button>
+  </div>
+</div>
+
+<!-- ASOSIY DASTUR -->
+<div id="appScreen">
+  <div id="loader"><div class="spinner"></div></div>
+  <div id="toast"></div>
+
+  <header>
+    <div class="logo">⬛ OPENROAD <span>/ Nakladnoy Tizimi</span></div>
+    <div class="online-badge"><span class="online-dot"></span> Onlayn</div>
+    <div class="date-badge" id="headerDate"></div>
+    <button class="logout-btn" onclick="doLogout()">Chiqish ↗</button>
+  </header>
+
+  <div class="stats-bar">
+    <div class="stat"><div class="stat-val" id="statTotal">—</div><div class="stat-lbl">Jami Nakladnoy</div></div>
+    <div class="stat"><div class="stat-val" id="statTonna">—</div><div class="stat-lbl">Jami Tonna</div></div>
+    <div class="stat"><div class="stat-val" id="statReys">—</div><div class="stat-lbl">Jami Reys</div></div>
+    <div class="stat"><div class="stat-val" id="statSumma">—</div><div class="stat-lbl">Jami Summa (so'm)</div></div>
+  </div>
+
+  <main>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('entry',this)">➕ Kiritish</button>
+      <button class="tab-btn" onclick="switchTab('list',this)">📋 Nakladnoylar</button>
+      <button class="tab-btn" onclick="switchTab('drivers',this)">🚛 Shofyrlar</button>
+    </div>
+
+    <div class="tab-panel active" id="tab-entry">
+      <div class="form-panel">
+        <div class="form-title">Yangi Nakladnoy Qo'shish</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Nakladnoy Raqami *</label><input type="text" id="f_nakl" placeholder="NKL-001"></div>
+          <div class="form-group"><label>Sana *</label><input type="date" id="f_sana"></div>
+          <div class="form-group"><label>Shofyor F.I.O. *</label><input type="text" id="f_shofyor" placeholder="Karimov Akbar" list="driver-list"><datalist id="driver-list"></datalist></div>
+          <div class="form-group"><label>Mashina Raqami *</label><input type="text" id="f_mashina" placeholder="01 A 123 BC"></div>
+          <div class="form-group">
+            <label>Xomashyo Turi *</label>
+            <select id="f_xoma">
+              <option value="">— tanlang —</option>
+              <option>Issiq asfalt</option><option>Sovuq asfalt</option>
+              <option>Qum</option><option>Shag'al</option>
+              <option>Tosh</option><option>Boshqa</option>
+            </select>
+          </div>
+          <div class="form-group"><label>Vazni (tonna) *</label><input type="number" id="f_tonna" placeholder="20" step="0.1" min="0"></div>
+          <div class="form-group"><label>Reys Soni</label><input type="number" id="f_reys" value="1" min="1"></div>
+          <div class="form-group"><label>Narx (so'm/tonna)</label><input type="number" id="f_narx" placeholder="150000" min="0"></div>
+          <div class="form-group"><label>Yetkazilgan Joy</label><input type="text" id="f_joy" placeholder="Yunusobod tumani"></div>
+          <div class="form-group"><label>Izoh</label><input type="text" id="f_izoh" placeholder="qo'shimcha"></div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-primary" onclick="addEntry()">✓ Saqlash</button>
+          <button class="btn-secondary" onclick="clearForm()">✕ Tozalash</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tab-list">
+      <div class="print-bar">
+        <button class="btn-secondary" onclick="window.print()">🖨 Chop etish</button>
+        <button class="btn-secondary" onclick="exportCSV()">⬇ CSV yuklash</button>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <span class="table-title">Barcha Nakladnoylar</span>
+          <input class="search-box" type="text" placeholder="Qidirish..." oninput="filterTable(this.value)">
+        </div>
+        <div style="overflow-x:auto">
+          <table class="tbl">
+            <thead><tr>
+              <th>Nakl.#</th><th>Sana</th><th>Shofyor</th><th>Mashina</th>
+              <th>Xomashyo</th><th>Tonna</th><th>Reys</th><th>Joy</th>
+              <th>Summa</th><th>To'landi</th><th>Amal</th>
+            </tr></thead>
+            <tbody id="tblBody"></tbody>
+          </table>
+        </div>
+        <div class="empty" id="emptyMsg" style="display:none">Hech qanday yozuv yo'q.</div>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="tab-drivers">
+      <div class="driver-grid" id="driverGrid"></div>
+      <div class="empty" id="driverEmpty" style="display:none">Hali shofyor ma'lumoti kiritilmagan.</div>
+    </div>
+  </main>
+</div>
+
+<script>
+window._entries = [];
+
+// ---- LOGIN ----
+const USERS = { 'openroad': 'asfalt2026' };
+
+function doLogin() {
+  const login = document.getElementById('loginInput').value.trim();
+  const pass  = document.getElementById('passInput').value;
+  if (USERS[login] && USERS[login] === pass) {
+    sessionStorage.setItem('or_auth', '1');
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appScreen').style.display = 'block';
+    window._startApp();
+  } else {
+    document.getElementById('loginErr').style.display = 'block';
+    document.getElementById('passInput').value = '';
+    document.getElementById('passInput').focus();
+  }
+}
+
+function doLogout() {
+  sessionStorage.removeItem('or_auth');
+  location.reload();
+}
+
+// Enter tugmasi bilan login
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('loginScreen').style.display !== 'none') doLogin();
+});
+
+// Oldin kirgan bo'lsa
+if (sessionStorage.getItem('or_auth')) {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  document.addEventListener('DOMContentLoaded', () => window._startApp && window._startApp());
+}
+
+// ---- APP ----
+function showLoader() { document.getElementById('loader').style.display = 'flex'; }
+function hideLoader() { document.getElementById('loader').style.display = 'none'; }
+
+function toast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show ' + type;
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.className = '', 2800);
+}
+
+function showError(msg) { alert(msg); }
+function fmt(n) { return Number(n).toLocaleString('uz-UZ'); }
+
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
+function clearForm() {
+  ['f_nakl','f_shofyor','f_mashina','f_joy','f_izoh'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f_xoma').value = '';
+  document.getElementById('f_tonna').value = '';
+  document.getElementById('f_reys').value = 1;
+  document.getElementById('f_narx').value = '';
+  document.getElementById('f_sana').value = new Date().toISOString().split('T')[0];
+}
+
+function updateStats() {
+  document.getElementById('statTotal').textContent = window._entries.length;
+  document.getElementById('statTonna').textContent = window._entries.reduce((s,e) => s+(e.tonna||0)*(e.reys||1),0).toFixed(1);
+  document.getElementById('statReys').textContent  = window._entries.reduce((s,e) => s+(e.reys||1),0);
+  document.getElementById('statSumma').textContent = fmt(window._entries.reduce((s,e) => s+(e.summa||0),0));
+}
+
+function updateDriverList() {
+  const drivers = [...new Set(window._entries.map(e => e.shofyor))];
+  document.getElementById('driver-list').innerHTML = drivers.map(d => `<option value="${d}">`).join('');
+}
+
+function renderTable(data) {
+  const tbody = document.getElementById('tblBody');
+  const empty = document.getElementById('emptyMsg');
+  if (!data || !data.length) { tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = data.map(e => `
+    <tr>
+      <td style="color:var(--accent);font-weight:700">${e.nakl||''}</td>
+      <td>${e.sana||''}</td>
+      <td>${e.shofyor||''}</td>
+      <td style="color:var(--accent)">${e.mashina||''}</td>
+      <td>${e.xoma||''}</td>
+      <td style="text-align:right">${e.tonna||0}</td>
+      <td style="text-align:center">${e.reys||1}</td>
+      <td>${e.joy||'—'}</td>
+      <td style="text-align:right;font-weight:700">${fmt(e.summa||0)}</td>
+      <td><span class="badge ${e.tolandi?'badge-green':'badge-red'}" onclick="togglePaid('${e.id}')">${e.tolandi?"✓ To'landi":"✗ Yo'q"}</span></td>
+      <td><button class="delete-btn" onclick="deleteEntry('${e.id}')">✕</button></td>
+    </tr>
+  `).join('');
+}
+
+function renderDrivers() {
+  const grid = document.getElementById('driverGrid');
+  const empty = document.getElementById('driverEmpty');
+  const map = {};
+  window._entries.forEach(e => {
+    if (!map[e.shofyor]) map[e.shofyor] = { mashina:e.mashina, reys:0, tonna:0, summa:0, tolandi:0, count:0 };
+    const d = map[e.shofyor];
+    d.reys   += e.reys||1;
+    d.tonna  += (e.tonna||0)*(e.reys||1);
+    d.summa  += e.summa||0;
+    if (e.tolandi) d.tolandi += e.summa||0;
+    d.count++;
+    if (!d.mashina) d.mashina = e.mashina;
+  });
+  const names = Object.keys(map);
+  if (!names.length) { grid.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+  grid.innerHTML = names.map(n => {
+    const d = map[n];
+    const qoldiq = d.summa - d.tolandi;
+    return `<div class="driver-card">
+      <div class="driver-name">${n}</div>
+      <div class="driver-plate">${d.mashina||'—'}</div>
+      <div class="driver-stats">
+        <div class="dstat"><div class="dstat-val">${d.count}</div><div class="dstat-lbl">Nakladnoy</div></div>
+        <div class="dstat"><div class="dstat-val">${d.reys}</div><div class="dstat-lbl">Reys</div></div>
+        <div class="dstat"><div class="dstat-val">${d.tonna.toFixed(1)}</div><div class="dstat-lbl">Tonna</div></div>
+      </div>
+      <div class="pay-status">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:4px">Jami summa</div>
+        <div style="font-family:var(--mono);font-weight:700">${fmt(d.summa)} so'm</div>
+        ${qoldiq>0
+          ? `<div style="font-size:11px;color:var(--red);margin-top:4px">Qoldiq: ${fmt(qoldiq)} so'm</div>`
+          : `<div style="font-size:11px;color:var(--green);margin-top:4px">To'liq to'landi ✓</div>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+</script>
+</body>
+</html>
