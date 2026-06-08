@@ -213,7 +213,7 @@ main{padding:20px;max-width:1600px;margin:0 auto;}
 </div>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, deleteDoc, doc, updateDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 const app = initializeApp({apiKey:"AIzaSyDfAA1hVFB3Q9SOToU2H4T5WcHsupwXlTs",authDomain:"openroad-2efbb.firebaseapp.com",projectId:"openroad-2efbb",storageBucket:"openroad-2efbb.firebasestorage.app",messagingSenderId:"787481988846",appId:"1:787481988846:web:f2535bc818377ba9aeadff"});
 const db = getFirestore(app);
 let E=[], cf="", uid=null, b64=null;
@@ -223,7 +223,7 @@ const tst=(m,t)=>{const x=g("toast");x.textContent=m;x.className="sh "+(t||"ok")
 const ld=on=>g("loader").style.display=on?"flex":"none";
 
 function listen(){
-  onSnapshot(query(collection(db,"nakladnoylar"),orderBy("sana","desc")),snap=>{
+  onSnapshot(query(collection(db,"nakladnoylar")),snap=>{
     E=[];snap.forEach(d=>E.push({id:d.id,...d.data()}));
     g("s1").textContent=E.length;
     g("s2").textContent=E.reduce((s,e)=>s+(e.t||0)*(e.r||1),0).toFixed(1);
