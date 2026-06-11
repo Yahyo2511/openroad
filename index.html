@@ -154,8 +154,10 @@ main{padding:20px;max-width:1600px;margin:0 auto;}
           <div class="fgp"><label>Mashina Raqami *</label><input type="text" id="f4" placeholder="01 A 123 BC"></div>
           <div class="fgp"><label>Xomashyo *</label><select id="f5"><option value="">tanlang</option><option>Issiq asfalt</option><option>Sovuq asfalt</option><option>Qum</option><option>Shagal</option><option>Tosh</option><option>Boshqa</option></select></div>
           <div class="fgp"><label>Tonna *</label><input type="number" id="f6" placeholder="20" step="0.1" min="0"></div>
-          <div class="fgp"><label>Reys</label><input type="number" id="f7" value="1" min="1"></div>
-          <div class="fgp"><label>Yol Haqi (som/reys)</label><input type="number" id="f8" placeholder="2000000" min="0"></div>
+          <div class="fgp"><label>Reys</label><input type="number" id="f7" value="1" min="1" oninput="calcQoldiq()"></div>
+          <div class="fgp"><label>Yol Haqi (som/reys)</label><input type="number" id="f8" placeholder="2000000" min="0" oninput="calcQoldiq()"></div>
+          <div class="fgp"><label>Berilgan Summa (som)</label><input type="number" id="f11" placeholder="0" min="0" oninput="calcQoldiq()"></div>
+          <div class="fgp"><label>Qoldiq (avtomatik)</label><input type="number" id="f12" placeholder="0" readonly style="opacity:0.6;cursor:not-allowed"></div>
           <div class="fgp"><label>Yetkazilgan Joy</label><input type="text" id="f9" placeholder="Yunusobod"></div>
           <div class="fgp"><label>Izoh</label><input type="text" id="f10" placeholder="qoshimcha"></div>
         </div>
@@ -177,7 +179,7 @@ main{padding:20px;max-width:1600px;margin:0 auto;}
         </div>
         <div style="overflow-x:auto">
           <table class="tbl">
-            <thead><tr><th>Nakl#</th><th>Sana</th><th>Shofyor</th><th>Mashina</th><th>Xomashyo</th><th>Tonna</th><th>Reys</th><th>Joy</th><th>Summa</th><th>Hujjat</th><th>Tolandi</th><th>Amal</th></tr></thead>
+            <thead><tr><th>Nakl#</th><th>Sana</th><th>Shofyor</th><th>Mashina</th><th>Xomashyo</th><th>Tonna</th><th>Reys</th><th>Joy</th><th>Yol Haqi</th><th>Berilgan</th><th>Qoldiq</th><th>Hujjat</th><th>Tolandi</th><th>Amal</th></tr></thead>
             <tbody id="tb"></tbody>
           </table>
         </div>
@@ -248,7 +250,7 @@ function rtbl(data){
   em.style.display="none";
   g("tb").innerHTML=data.map(e=>{
     const rasm=e.rb?`<img class="rth" src="${e.rb}" data-id="${e.id}" onclick="vr(this)"> <span class="ub" data-id="${e.id}" onclick="om(this)">&#9998;</span>`:`<span class="ub" data-id="${e.id}" onclick="om(this)">+ Rasm</span>`;
-    return `<tr><td style="color:var(--au);font-weight:700">${e.n||""}</td><td>${e.s||""}</td><td>${e.sh||""}</td><td style="color:var(--au)">${e.m||""}</td><td>${e.x||""}</td><td style="text-align:right">${e.t||0}</td><td style="text-align:center">${e.r||1}</td><td>${e.j||"-"}</td><td style="text-align:right;font-weight:700">${fmt(e.sm||0)}</td><td>${rasm}</td><td><span class="ba ${e.pd?"bg2":"br2"}" data-id="${e.id}" onclick="pay(this.dataset.id)">${e.pd?"Tolandi":"Yoq"}</span></td><td><button class="db2" data-id="${e.id}" onclick="del(this.dataset.id)">&#x2715;</button></td></tr>`;
+    return `<tr><td style="color:var(--au);font-weight:700">${e.n||""}</td><td>${e.s||""}</td><td>${e.sh||""}</td><td style="color:var(--au)">${e.m||""}</td><td>${e.x||""}</td><td style="text-align:right">${e.t||0}</td><td style="text-align:center">${e.r||1}</td><td>${e.j||"-"}</td><td style="text-align:right;font-weight:700">${fmt(e.sm||0)}</td><td style="text-align:right;color:var(--gr)">${fmt(e.berilgan||0)}</td><td style="text-align:right;color:${(e.qoldiq||0)>0?"var(--rd)":"var(--gr)";}">${(e.qoldiq||0)>0?fmt(e.qoldiq):"Toliq"}</td><td>${rasm}</td><td><span class="ba ${e.pd?"bg2":"br2"}" data-id="${e.id}" onclick="pay(this.dataset.id)">${e.pd?"Tolandi":"Yoq"}</span></td><td><button class="db2" data-id="${e.id}" onclick="del(this.dataset.id)">&#x2715;</button></td></tr>`;
   }).join("");
 }
 
@@ -262,7 +264,8 @@ function rdrvs(){
   g("dg").innerHTML=ns.map(n=>{const d=map[n],q=d.s-d.p;return`<div class="dc"><div class="dn">${n}</div><div class="dp">${d.m||"-"}</div><div class="ds"><div class="di"><div class="dv">${d.c}</div><div class="dl">Nakladnoy</div></div><div class="di"><div class="dv">${d.r}</div><div class="dl">Reys</div></div><div class="di"><div class="dv">${d.t.toFixed(1)}</div><div class="dl">Tonna</div></div></div><div class="ps"><div style="font-size:9px;color:var(--mt);margin-bottom:3px">Jami summa</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--au)">${fmt(d.s)} som</div>${q>0?`<div style="font-size:10px;color:var(--rd);margin-top:3px">Qoldiq: ${fmt(q)} som</div>`:`<div style="font-size:10px;color:var(--gr);margin-top:3px">Toliq tolandi ✓</div>`}</div></div>`;}).join("");
 }
 
-function clr(){["f1","f3","f4","f9","f10"].forEach(i=>g(i).value="");g("f5").value="";g("f6").value="";g("f7").value=1;g("f8").value="";g("f2").value=new Date().toISOString().split("T")[0];}
+function clr(){["f1","f3","f4","f9","f10","f11"].forEach(i=>g(i).value="");g("f5").value="";g("f6").value="";g("f7").value=1;g("f8").value="";g("f12").value="";g("f2").value=new Date().toISOString().split("T")[0];}
+function calcQoldiq(){const haqi=parseFloat(g("f8").value)||0;const reys=parseInt(g("f7").value)||1;const berilgan=parseFloat(g("f11").value)||0;const jami=haqi*reys;g("f12").value=jami-berilgan>0?jami-berilgan:0;}
 
 window.om=el=>{uid=el.dataset.id;b64=null;g("prev").style.display="none";g("cph").style.display="flex";g("svbtn").classList.remove("sh");g("rm").style.display="flex";};
 window.vr=el=>{const e=E.find(x=>x.id===el.dataset.id);if(!e||!e.rb)return;g("vi").src=e.rb;g("vdl").href=e.rb;g("vm").style.display="flex";};
@@ -282,7 +285,9 @@ g("sbtn").onclick=async()=>{
   const j=g("f9").value.trim(),iz=g("f10").value.trim();
   if(!n||!s||!sh||!m||!x||!t){tst("Majburiy maydonlarni toldiring","warn");return;}
   ld(1);
-  try{await addDoc(collection(db,"nakladnoylar"),{n,s,sh,m,x,t,r,narx,sm:narx*r,j,iz,pd:false,pts:"",rb:"",ts:new Date().toISOString()});tst("Saqlandi!","ok");clr();}
+  const berilgan=parseFloat(g("f11").value)||0;
+  const qoldiq=(narx*r)-berilgan;
+  try{await addDoc(collection(db,"nakladnoylar"),{n,s,sh,m,x,t,r,narx,sm:narx*r,berilgan,qoldiq:qoldiq>0?qoldiq:0,j,iz,pd:false,pts:"",rb:"",ts:new Date().toISOString()});tst("Saqlandi!","ok");clr();}
   catch(e){tst("Xatolik: "+e.message,"err");}
   ld(0);
 };
