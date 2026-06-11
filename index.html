@@ -250,7 +250,9 @@ function rtbl(data){
   em.style.display="none";
   g("tb").innerHTML=data.map(e=>{
     const rasm=e.rb?`<img class="rth" src="${e.rb}" data-id="${e.id}" onclick="vr(this)"> <span class="ub" data-id="${e.id}" onclick="om(this)">&#9998;</span>`:`<span class="ub" data-id="${e.id}" onclick="om(this)">+ Rasm</span>`;
-    return `<tr><td style="color:var(--au);font-weight:700">${e.n||""}</td><td>${e.s||""}</td><td>${e.sh||""}</td><td style="color:var(--au)">${e.m||""}</td><td>${e.x||""}</td><td style="text-align:right">${e.t||0}</td><td style="text-align:center">${e.r||1}</td><td>${e.j||"-"}</td><td style="text-align:right;font-weight:700">${fmt(e.sm||0)}</td><td style="text-align:right;color:var(--gr)">${fmt(e.berilgan||0)}</td><td style="text-align:right;color:${(e.qoldiq||0)>0?"var(--rd)":"var(--gr)";}">${(e.qoldiq||0)>0?fmt(e.qoldiq):"Toliq"}</td><td>${rasm}</td><td><span class="ba ${e.pd?"bg2":"br2"}" data-id="${e.id}" onclick="pay(this.dataset.id)">${e.pd?"Tolandi":"Yoq"}</span></td><td><button class="db2" data-id="${e.id}" onclick="del(this.dataset.id)">&#x2715;</button></td></tr>`;
+    const qClr=(e.qoldiq||0)>0?"var(--rd)":"var(--gr)";
+    const qTxt=(e.qoldiq||0)>0?fmt(e.qoldiq):"Toliq";
+    return `<tr><td style="color:var(--au);font-weight:700">${e.n||""}</td><td>${e.s||""}</td><td>${e.sh||""}</td><td style="color:var(--au)">${e.m||""}</td><td>${e.x||""}</td><td style="text-align:right">${e.t||0}</td><td style="text-align:center">${e.r||1}</td><td>${e.j||"-"}</td><td style="text-align:right;font-weight:700">${fmt(e.sm||0)}</td><td style="text-align:right;color:var(--gr)">${fmt(e.berilgan||0)}</td><td style="text-align:right;color:${qClr}">${qTxt}</td><td>${rasm}</td><td><span class="ba ${e.pd?"bg2":"br2"}" data-id="${e.id}" onclick="pay(this.dataset.id)">${e.pd?"Tolandi":"Yoq"}</span></td><td><button class="db2" data-id="${e.id}" onclick="del(this.dataset.id)">&#x2715;</button></td></tr>`;
   }).join("");
 }
 
