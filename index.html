@@ -276,9 +276,13 @@ window.pay=async id=>{
   const e=E.find(x=>x.id===id);if(!e)return;
   const v=!e.pd;
   const upd={pd:v,pts:v?new Date().toISOString().split("T")[0]:""};
-  if(v){upd.berilgan=e.sm||0;upd.qoldiq=0;}
-  else{upd.berilgan=e.berilgan||0;upd.qoldiq=e.sm||0;}
-  try{await updateDoc(doc(db,"nakladnoylar",id),upd);tst(v?"Toliq tolandi":"Tolanmagan","ok");}
+  if(v){
+    // To'landi bosilganda: berilgan = sm, qoldiq = 0
+    upd.berilgan=e.sm||0;
+    upd.qoldiq=0;
+  }
+  // Qaytib bosilganda berilgan va qoldiq O'ZGARMAYDI - faqat pd belgisi o'zgaradi
+  try{await updateDoc(doc(db,"nakladnoylar",id),upd);tst(v?"Toliq tolandi":"Belgi olindi","ok");}
   catch(e){tst("Xatolik","err");}
 };
 window.del=async id=>{if(!confirm("Ochirasizmi?"))return;try{await deleteDoc(doc(db,"nakladnoylar",id));tst("Ochirildi","ok");}catch(e){tst("Xatolik","err");}};
