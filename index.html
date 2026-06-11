@@ -233,10 +233,11 @@ function listen(){
     g("s2").textContent=E.reduce((s,e)=>s+(e.t||0),0).toFixed(1);
     g("s3").textContent=E.reduce((s,e)=>s+(e.r||1),0);
     const totalSm=E.reduce((s,e)=>s+(e.sm||0),0);
-    const totalPd=E.reduce((s,e)=>e.pd?(s+(e.sm||0)):s,0);
+    const totalBerilgan=E.reduce((s,e)=>s+(e.berilgan||0),0);
+    const totalQoldiq=E.reduce((s,e)=>s+(e.qoldiq||0),0);
     g("s4").textContent=fmt(totalSm);
-    g("s5").textContent=fmt(totalPd);
-    g("s6").textContent=fmt(totalSm-totalPd);
+    g("s5").textContent=fmt(totalBerilgan);
+    g("s6").textContent=fmt(totalQoldiq);
     g("dl").innerHTML=[...new Set(E.map(e=>e.sh))].map(x=>`<option value="${x}">`).join("");
     rtbl(cf?E.filter(e=>JSON.stringify(e).toLowerCase().includes(cf)):E);
     rdrvs();
