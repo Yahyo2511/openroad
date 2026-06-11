@@ -272,7 +272,15 @@ function calcQoldiq(){const haqi=parseFloat(g("f8").value)||0;const reys=parseIn
 
 window.om=el=>{uid=el.dataset.id;b64=null;g("prev").style.display="none";g("cph").style.display="flex";g("svbtn").classList.remove("sh");g("rm").style.display="flex";};
 window.vr=el=>{const e=E.find(x=>x.id===el.dataset.id);if(!e||!e.rb)return;g("vi").src=e.rb;g("vdl").href=e.rb;g("vm").style.display="flex";};
-window.pay=async id=>{const e=E.find(x=>x.id===id);if(!e)return;const v=!e.pd;try{await updateDoc(doc(db,"nakladnoylar",id),{pd:v,pts:v?new Date().toISOString().split("T")[0]:""});tst(v?"Tolandi":"Tolanmagan","ok");}catch(e){tst("Xatolik","err");}};
+window.pay=async id=>{
+  const e=E.find(x=>x.id===id);if(!e)return;
+  const v=!e.pd;
+  const upd={pd:v,pts:v?new Date().toISOString().split("T")[0]:""};
+  if(v){upd.berilgan=e.sm||0;upd.qoldiq=0;}
+  else{upd.berilgan=e.berilgan||0;upd.qoldiq=e.sm||0;}
+  try{await updateDoc(doc(db,"nakladnoylar",id),upd);tst(v?"Toliq tolandi":"Tolanmagan","ok");}
+  catch(e){tst("Xatolik","err");}
+};
 window.del=async id=>{if(!confirm("Ochirasizmi?"))return;try{await deleteDoc(doc(db,"nakladnoylar",id));tst("Ochirildi","ok");}catch(e){tst("Xatolik","err");}};
 
 g("lbtn").onclick=()=>{
