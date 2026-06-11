@@ -35,7 +35,7 @@ header{background:rgba(5,5,5,.96);border-bottom:1px solid var(--a2);padding:0 20
 .od{width:6px;height:6px;background:var(--gr);border-radius:50%;animation:pu 2s infinite;}
 @keyframes pu{0%,100%{opacity:1}50%{opacity:.3}}
 .lo{margin-left:auto;background:transparent;border:1px solid var(--b);color:var(--mt);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 11px;border-radius:4px;cursor:pointer;}
-.sb{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--b);border-bottom:1px solid var(--b);}
+.sb{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--b);border-bottom:1px solid var(--b);}
 .st{background:rgba(5,5,5,.97);padding:12px 16px;text-align:center;}
 .sv{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:var(--au);}
 .sl{font-size:9px;color:var(--mt);text-transform:uppercase;letter-spacing:.8px;font-family:'IBM Plex Mono',monospace;}
@@ -134,7 +134,9 @@ main{padding:20px;max-width:1600px;margin:0 auto;}
     <div class="st"><div class="sv" id="s1">0</div><div class="sl">Nakladnoy</div></div>
     <div class="st"><div class="sv" id="s2">0</div><div class="sl">Tonna</div></div>
     <div class="st"><div class="sv" id="s3">0</div><div class="sl">Reys</div></div>
-    <div class="st"><div class="sv" id="s4">0</div><div class="sl">Summa</div></div>
+    <div class="st"><div class="sv" id="s4">0</div><div class="sl">Jami Yol Haqi</div></div>
+    <div class="st"><div class="sv" id="s5" style="color:var(--gr)">0</div><div class="sl">Tolangan</div></div>
+    <div class="st"><div class="sv" id="s6" style="color:var(--rd)">0</div><div class="sl">Qarz (Qoldiq)</div></div>
   </div>
   <main>
     <div class="tabs">
@@ -153,7 +155,7 @@ main{padding:20px;max-width:1600px;margin:0 auto;}
           <div class="fgp"><label>Xomashyo *</label><select id="f5"><option value="">tanlang</option><option>Issiq asfalt</option><option>Sovuq asfalt</option><option>Qum</option><option>Shagal</option><option>Tosh</option><option>Boshqa</option></select></div>
           <div class="fgp"><label>Tonna *</label><input type="number" id="f6" placeholder="20" step="0.1" min="0"></div>
           <div class="fgp"><label>Reys</label><input type="number" id="f7" value="1" min="1"></div>
-          <div class="fgp"><label>Narx (som/t)</label><input type="number" id="f8" placeholder="150000" min="0"></div>
+          <div class="fgp"><label>Yol Haqi (som/reys)</label><input type="number" id="f8" placeholder="2000000" min="0"></div>
           <div class="fgp"><label>Yetkazilgan Joy</label><input type="text" id="f9" placeholder="Yunusobod"></div>
           <div class="fgp"><label>Izoh</label><input type="text" id="f10" placeholder="qoshimcha"></div>
         </div>
@@ -226,9 +228,13 @@ function listen(){
   onSnapshot(query(collection(db,"nakladnoylar")),snap=>{
     E=[];snap.forEach(d=>E.push({id:d.id,...d.data()}));
     g("s1").textContent=E.length;
-    g("s2").textContent=E.reduce((s,e)=>s+(e.t||0)*(e.r||1),0).toFixed(1);
+    g("s2").textContent=E.reduce((s,e)=>s+(e.t||0),0).toFixed(1);
     g("s3").textContent=E.reduce((s,e)=>s+(e.r||1),0);
-    g("s4").textContent=fmt(E.reduce((s,e)=>s+(e.sm||0),0));
+    const totalSm=E.reduce((s,e)=>s+(e.sm||0),0);
+    const totalPd=E.reduce((s,e)=>e.pd?(s+(e.sm||0)):s,0);
+    g("s4").textContent=fmt(totalSm);
+    g("s5").textContent=fmt(totalPd);
+    g("s6").textContent=fmt(totalSm-totalPd);
     g("dl").innerHTML=[...new Set(E.map(e=>e.sh))].map(x=>`<option value="${x}">`).join("");
     rtbl(cf?E.filter(e=>JSON.stringify(e).toLowerCase().includes(cf)):E);
     rdrvs();
@@ -276,7 +282,7 @@ g("sbtn").onclick=async()=>{
   const j=g("f9").value.trim(),iz=g("f10").value.trim();
   if(!n||!s||!sh||!m||!x||!t){tst("Majburiy maydonlarni toldiring","warn");return;}
   ld(1);
-  try{await addDoc(collection(db,"nakladnoylar"),{n,s,sh,m,x,t,r,narx,sm:t*r*narx,j,iz,pd:false,pts:"",rb:"",ts:new Date().toISOString()});tst("Saqlandi!","ok");clr();}
+  try{await addDoc(collection(db,"nakladnoylar"),{n,s,sh,m,x,t,r,narx,sm:narx*r,j,iz,pd:false,pts:"",rb:"",ts:new Date().toISOString()});tst("Saqlandi!","ok");clr();}
   catch(e){tst("Xatolik: "+e.message,"err");}
   ld(0);
 };
