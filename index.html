@@ -37,18 +37,18 @@ header{background:rgba(5,5,5,.96);border-bottom:1px solid var(--a2);padding:0 20
 .lo{margin-left:auto;background:transparent;border:1px solid var(--b);color:var(--mt);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 11px;border-radius:4px;cursor:pointer;}
 .sb{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--b);border-bottom:1px solid var(--b);}
 .st{background:rgba(5,5,5,.97);padding:12px 16px;text-align:center;}
-.sv{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:700;color:var(--au);}
-.sl{font-size:9px;color:var(--mt);text-transform:uppercase;letter-spacing:.8px;font-family:'IBM Plex Mono',monospace;}
+.sv{font-family:'Cormorant Garamond',serif;font-size:24px;font-weight:700;color:var(--au);}
+.sl{font-size:11px;color:var(--mt);text-transform:uppercase;letter-spacing:.5px;font-family:'IBM Plex Mono',monospace;}
 main{padding:20px;max-width:1600px;margin:0 auto;}
 .tabs{display:flex;border-bottom:1px solid var(--b);margin-bottom:18px;}
-.tb{font-family:'IBM Plex Mono',monospace;font-size:12px;padding:9px 18px;border:none;background:transparent;color:var(--mt);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+.tb{font-family:'IBM Plex Mono',monospace;font-size:13px;padding:10px 20px;border:none;background:transparent;color:var(--mt);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
 .tb.ac{color:var(--au);border-bottom-color:var(--au);}
 .tp{display:none;}.tp.ac{display:block;}
 .fp{background:rgba(12,12,12,.97);border:1px solid var(--b);border-top:2px solid var(--a2);border-radius:10px;padding:22px;margin-bottom:16px;}
 .ft{font-family:'Cormorant Garamond',serif;font-size:17px;color:var(--au);margin-bottom:18px;display:flex;align-items:center;gap:8px;}
 .ft::before{content:"";width:6px;height:6px;background:var(--au);border-radius:50%;display:inline-block;}
 .fg{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;}
-.fgp label{display:block;font-size:9px;color:var(--a2);text-transform:uppercase;letter-spacing:.8px;font-family:'IBM Plex Mono',monospace;margin-bottom:5px;}
+.fgp label{display:block;font-size:11px;color:var(--a2);text-transform:uppercase;letter-spacing:.5px;font-family:'IBM Plex Mono',monospace;margin-bottom:5px;}
 .fgp input,.fgp select{background:rgba(255,255,255,.02);border:1px solid var(--b);color:var(--tx);font-family:'IBM Plex Mono',monospace;font-size:13px;padding:7px 10px;border-radius:5px;outline:none;width:100%;}
 .fgp input:focus,.fgp select:focus{border-color:var(--au);}
 .fgp select option{background:#111;}
@@ -275,15 +275,20 @@ window.vr=el=>{const e=E.find(x=>x.id===el.dataset.id);if(!e||!e.rb)return;g("vi
 window.pay=async id=>{
   const e=E.find(x=>x.id===id);if(!e)return;
   const v=!e.pd;
-  const upd={pd:v,pts:v?new Date().toISOString().split("T")[0]:""};
+  let upd={pd:v,pts:v?new Date().toISOString().split("T")[0]:""};
   if(v){
-    // To'landi bosilganda: berilgan = sm, qoldiq = 0
+    // TO'LANDI bosilganda: asl qiymatlarni DB ga saqlayiz
+    upd.origBerilgan=e.berilgan||0;
+    upd.origQoldiq=e.qoldiq||(e.sm||0);
     upd.berilgan=e.sm||0;
     upd.qoldiq=0;
+  } else {
+    // QAYTIB bosilganda: asl qiymatlarni tiklash
+    upd.berilgan=e.origBerilgan!==undefined?e.origBerilgan:0;
+    upd.qoldiq=e.origQoldiq!==undefined?e.origQoldiq:(e.sm||0);
   }
-  // Qaytib bosilganda berilgan va qoldiq O'ZGARMAYDI - faqat pd belgisi o'zgaradi
-  try{await updateDoc(doc(db,"nakladnoylar",id),upd);tst(v?"Toliq tolandi":"Belgi olindi","ok");}
-  catch(e){tst("Xatolik","err");}
+  try{await updateDoc(doc(db,"nakladnoylar",id),upd);tst(v?"Toliq tolandi!":"Asl holga qaytdi","ok");}
+  catch(err){tst("Xatolik","err");}
 };
 window.del=async id=>{if(!confirm("Ochirasizmi?"))return;try{await deleteDoc(doc(db,"nakladnoylar",id));tst("Ochirildi","ok");}catch(e){tst("Xatolik","err");}};
 
@@ -312,7 +317,33 @@ g("srch").oninput=function(){cf=this.value.toLowerCase();rtbl(cf?E.filter(e=>JSO
 ["t1","t2","t3"].forEach((id,i)=>g(id).onclick=function(){document.querySelectorAll(".tp").forEach(p=>p.classList.remove("ac"));document.querySelectorAll(".tb").forEach(b=>b.classList.remove("ac"));g("tp"+(i+1)).classList.add("ac");this.classList.add("ac");});
 g("mclose").onclick=()=>g("rm").style.display="none";
 g("vclose").onclick=()=>g("vm").style.display="none";
-g("svbtn").onclick=async()=>{if(!b64||!uid)return;g("rm").style.display="none";ld(1);try{await updateDoc(doc(db,"nakladnoylar",uid),{rb:b64});tst("Rasm saqlandi!","ok");}catch(e){tst("Xatolik","err");}ld(0);};
+async function compressImg(dataUrl){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{
+      const canvas=document.createElement("canvas");
+      const maxW=1000;
+      const ratio=Math.min(maxW/img.width,maxW/img.height,1);
+      canvas.width=Math.round(img.width*ratio);
+      canvas.height=Math.round(img.height*ratio);
+      canvas.getContext("2d").drawImage(img,0,0,canvas.width,canvas.height);
+      resolve(canvas.toDataURL("image/jpeg",0.65));
+    };
+    img.onerror=()=>resolve(dataUrl);
+    img.src=dataUrl;
+  });
+}
+g("svbtn").onclick=async()=>{
+  if(!b64||!uid)return;
+  g("rm").style.display="none";
+  ld(1);
+  try{
+    const compressed=await compressImg(b64);
+    await updateDoc(doc(db,"nakladnoylar",uid),{rb:compressed});
+    tst("Rasm saqlandi!","ok");
+  }catch(err){tst("Rasm saqlanmadi: "+err.message,"err");}
+  ld(0);
+};
 ["fc","fg2"].forEach(id=>g(id).addEventListener("change",function(){const f=this.files[0];if(!f)return;const rd=new FileReader();rd.onload=ev=>{b64=ev.target.result;const img=g("prev");img.src=b64;img.style.display="block";g("cph").style.display="none";g("svbtn").classList.add("sh");};rd.readAsDataURL(f);}));
 
 function init(){ld(1);listen();g("f2").value=new Date().toISOString().split("T")[0];g("hdate").textContent=new Date().toLocaleDateString("uz-UZ",{weekday:"long",year:"numeric",month:"long",day:"numeric"});}
