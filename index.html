@@ -104,6 +104,7 @@ main{padding:20px;max-width:1600px;margin:0 auto;}
 #toast.err{background:var(--rd);color:#fff;}
 @media(max-width:600px){.sb{grid-template-columns:repeat(2,1fr);}.fg{grid-template-columns:1fr;}}
 </style>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <div id="ls">
@@ -170,7 +171,7 @@ main{padding:20px;max-width:1600px;margin:0 auto;}
     <div class="tp" id="tp2">
       <div class="pb">
         <button class="bs" onclick="window.print()">Chop etish</button>
-        <button class="bs" id="csvbtn">CSV</button>
+        <button class="bs" id="csvbtn">📥 Excel yuklab olish</button>
       </div>
       <div class="tw">
         <div class="th2">
@@ -259,12 +260,48 @@ function rtbl(data){
 
 function rdrvs(){
   const map={};
-  E.forEach(e=>{if(!map[e.sh])map[e.sh]={m:e.m,r:0,t:0,s:0,p:0,c:0};const d=map[e.sh];d.r+=e.r||1;d.t+=(e.t||0)*(e.r||1);d.s+=e.sm||0;if(e.pd)d.p+=e.sm||0;d.c++;});
+  E.forEach(e=>{
+    if(!map[e.sh])map[e.sh]={m:e.m,r:0,t:0,s:0,berilgan:0,qoldiq:0,c:0};
+    const d=map[e.sh];
+    d.r+=e.r||1;
+    d.t+=(e.t||0);
+    d.s+=e.sm||0;
+    d.berilgan+=e.berilgan||0;
+    d.qoldiq+=e.qoldiq||0;
+    d.c++;
+  });
   const ns=Object.keys(map);
   const em=g("dem");
   if(!ns.length){g("dg").innerHTML="";em.style.display="block";return;}
   em.style.display="none";
-  g("dg").innerHTML=ns.map(n=>{const d=map[n],q=d.s-d.p;return`<div class="dc"><div class="dn">${n}</div><div class="dp">${d.m||"-"}</div><div class="ds"><div class="di"><div class="dv">${d.c}</div><div class="dl">Nakladnoy</div></div><div class="di"><div class="dv">${d.r}</div><div class="dl">Reys</div></div><div class="di"><div class="dv">${d.t.toFixed(1)}</div><div class="dl">Tonna</div></div></div><div class="ps"><div style="font-size:9px;color:var(--mt);margin-bottom:3px">Jami summa</div><div style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--au)">${fmt(d.s)} som</div>${q>0?`<div style="font-size:10px;color:var(--rd);margin-top:3px">Qoldiq: ${fmt(q)} som</div>`:`<div style="font-size:10px;color:var(--gr);margin-top:3px">Toliq tolandi ✓</div>`}</div></div>`;}).join("");
+  g("dg").innerHTML=ns.map(n=>{
+    const d=map[n];
+    return`<div class="dc">
+      <div class="dn">${n}</div>
+      <div class="dp">${d.m||"-"}</div>
+      <div class="ds">
+        <div class="di"><div class="dv">${d.c}</div><div class="dl">Nakladnoy</div></div>
+        <div class="di"><div class="dv">${d.r}</div><div class="dl">Reys</div></div>
+        <div class="di"><div class="dv">${d.t.toFixed(1)}</div><div class="dl">Tonna</div></div>
+      </div>
+      <div class="ps">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+          <div>
+            <div style="font-size:10px;color:var(--mt);margin-bottom:2px">Jami Yol Haqi</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--au);font-size:13px">${fmt(d.s)}</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--mt);margin-bottom:2px">Berilgan</div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;color:var(--gr);font-size:13px">${fmt(d.berilgan)}</div>
+          </div>
+        </div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--b)">
+          <div style="font-size:10px;color:var(--mt);margin-bottom:2px">Qarz (Qoldiq)</div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:15px;color:${d.qoldiq>0?"var(--rd)":"var(--gr)"}">${d.qoldiq>0?fmt(d.qoldiq)+" som":"Toliq tolandi ✓"}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
 }
 
 function clr(){["f1","f3","f4","f9","f10","f11"].forEach(i=>g(i).value="");g("f5").value="";g("f6").value="";g("f7").value=1;g("f8").value="";g("f12").value="";g("f2").value=new Date().toISOString().split("T")[0];}
@@ -312,7 +349,36 @@ g("sbtn").onclick=async()=>{
   ld(0);
 };
 g("cbtn").onclick=clr;
-g("csvbtn").onclick=()=>{const h=["Nakl","Sana","Shofyor","Mashina","Xomashyo","Tonna","Reys","Narx","Summa","Joy","Tolandi"];const r=E.map(e=>[e.n,e.s,e.sh,e.m,e.x,e.t,e.r,e.narx,e.sm,e.j,e.pd?"Ha":"Yoq"]);const csv=[h,...r].map(x=>x.join(",")).join("\n");const a=document.createElement("a");a.href="data:text/csv;charset=utf-8,\uFEFF"+encodeURIComponent(csv);a.download="openroad.csv";a.click();};
+g("csvbtn").onclick=()=>{
+  try{
+    const headers=["Nakladnoy#","Sana","Shofyor","Mashina","Xomashyo","Tonna","Reys","Yol Haqi","Jami Summa","Berilgan","Qoldiq","Joy","Izoh","Tolandi"];
+    const rows=E.map(e=>[
+      e.n||"", e.s||"", e.sh||"", e.m||"", e.x||"",
+      e.t||0, e.r||1, e.narx||0, e.sm||0,
+      e.berilgan||0, e.qoldiq||0,
+      e.j||"", e.iz||"", e.pd?"Ha":"Yoq"
+    ]);
+    const wb=XLSX.utils.book_new();
+    // Sheet 1: Nakladnoylar
+    const ws1Data=[headers,...rows];
+    const ws1=XLSX.utils.aoa_to_sheet(ws1Data);
+    ws1["!cols"]=[{wch:12},{wch:12},{wch:20},{wch:14},{wch:14},{wch:8},{wch:6},{wch:12},{wch:14},{wch:12},{wch:12},{wch:18},{wch:16},{wch:8}];
+    XLSX.utils.book_append_sheet(wb,ws1,"Nakladnoylar");
+    // Sheet 2: Shofyrlar
+    const dmap={};
+    E.forEach(e=>{
+      if(!dmap[e.sh])dmap[e.sh]={m:e.m,r:0,t:0,s:0,berilgan:0,qoldiq:0,c:0};
+      const d=dmap[e.sh];d.r+=e.r||1;d.t+=e.t||0;d.s+=e.sm||0;d.berilgan+=e.berilgan||0;d.qoldiq+=e.qoldiq||0;d.c++;
+    });
+    const sh2=[["Shofyor","Mashina","Nakladnoy","Reys","Tonna","Jami Yol Haqi","Berilgan","Qoldiq"]];
+    Object.keys(dmap).forEach(n=>{const d=dmap[n];sh2.push([n,d.m||"",d.c,d.r,d.t.toFixed(1),d.s,d.berilgan,d.qoldiq]);});
+    const ws2=XLSX.utils.aoa_to_sheet(sh2);
+    ws2["!cols"]=[{wch:20},{wch:14},{wch:10},{wch:6},{wch:8},{wch:14},{wch:12},{wch:12}];
+    XLSX.utils.book_append_sheet(wb,ws2,"Shofyrlar");
+    XLSX.writeFile(wb,"OpenRoad_"+new Date().toISOString().split("T")[0]+".xlsx");
+    tst("Excel yuklab olindi!","ok");
+  }catch(err){tst("Xatolik: "+err.message,"err");}
+};
 g("srch").oninput=function(){cf=this.value.toLowerCase();rtbl(cf?E.filter(e=>JSON.stringify(e).toLowerCase().includes(cf)):E);};
 ["t1","t2","t3"].forEach((id,i)=>g(id).onclick=function(){document.querySelectorAll(".tp").forEach(p=>p.classList.remove("ac"));document.querySelectorAll(".tb").forEach(b=>b.classList.remove("ac"));g("tp"+(i+1)).classList.add("ac");this.classList.add("ac");});
 g("mclose").onclick=()=>g("rm").style.display="none";
